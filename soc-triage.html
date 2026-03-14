@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SOC Alert Triage Assistant</title>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg:      #f8f9fb;
+    --bg2:     #f0f2f5;
+    --bg3:     #e8eaee;
+    --surface: #ffffff;
+    --border:  #dde0e8;
+    --border2: #c8ccd8;
+    --ink:     #0f1623;
+    --ink2:    #4a5168;
+    --ink3:    #8890a8;
+    --red:     #dc2626;
+    --red-bg:  #fef2f2;
+    --red-bd:  #fecaca;
+    --orange:  #d97706;
+    --ora-bg:  #fffbeb;
+    --ora-bd:  #fde68a;
+    --blue:    #2563eb;
+    --blu-bg:  #eff6ff;
+    --blu-bd:  #bfdbfe;
+    --green:   #16a34a;
+    --grn-bg:  #f0fdf4;
+    --grn-bd:  #bbf7d0;
+    --purple:  #7c3aed;
+    --pur-bg:  #f5f3ff;
+    --pur-bd:  #ddd6fe;
+    --mono:    'Fira Code', monospace;
+    --sans:    'Plus Jakarta Sans', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    min-height: 100vh;
+  }
+
+  /* Header */
+  header {
+    background: var(--ink);
+    padding: 0 2rem;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .brand-icon {
+    width: 30px; height: 30px;
+    background: var(--blue);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px;
+  }
+
+  .brand-name {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 500;
+    color: #fff;
+    letter-spacing: 0.02em;
+  }
+
+  .brand-name span { color: var(--ink3); }
+
+  .header-tag {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink3);
+    border: 1px solid #2a3040;
+    border-radius: 3px;
+    padding: 3px 8px;
+    letter-spacing: 0.06em;
+  }
+
+  /* Layout — split panel */
+  .layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    min-height: calc(100vh - 56px);
+  }
+
+  /* Left panel — input */
+  .left-panel {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .panel-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg2);
+  }
+
+  .panel-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--ink2);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 2px;
+  }
+
+  .panel-sub { font-size: 11px; color: var(--ink3); font-family: var(--mono); }
+
+  .panel-body { padding: 20px; flex: 1; display: flex; flex-direction: column; gap: 14px; }
+
+  /* API key */
+  .api-row {
+    display: flex;
+    align-items: center;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .api-prefix {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink3);
+    padding: 0 10px;
+    height: 38px;
+    display: flex; align-items: center;
+    border-right: 1px solid var(--border);
+    background: var(--bg3);
+    white-space: nowrap;
+    letter-spacing: 0.06em;
+  }
+
+  .api-row input {
+    flex: 1;
+    border: none;
+    outline: none;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--ink);
+    background: transparent;
+    padding: 0 12px;
+    height: 38px;
+  }
+
+  .api-row input::placeholder { color: var(--ink3); }
+
+  .api-hint { font-size: 11px; color: var(--ink3); }
+  .api-hint a { color: var(--blue); text-decoration: none; }
+
+  /* Alert type tabs */
+  .alert-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+
+  .alert-tab {
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 5px 12px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    color: var(--ink3);
+    cursor: pointer;
+    transition: all 0.15s;
+    background: var(--bg);
+    letter-spacing: 0.03em;
+  }
+
+  .alert-tab:hover { border-color: var(--border2); color: var(--ink2); }
+  .alert-tab.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+  /* Context fields */
+  .ctx-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  .ctx-field { display: flex; flex-direction: column; gap: 5px; }
+
+  .ctx-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink3);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .ctx-field input, .ctx-field select {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 7px 10px;
+    outline: none;
+  }
+
+  .ctx-field input:focus, .ctx-field select:focus { border-color: var(--border2); }
+  .ctx-field input::placeholder { color: var(--ink3); }
+  .ctx-field select option { background: var(--surface); }
+
+  /* Alert textarea */
+  .alert-textarea {
+    flex: 1;
+    width: 100%;
+    min-height: 220px;
+    resize: vertical;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: 11px;
+    line-height: 1.8;
+    padding: 12px 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .alert-textarea:focus { border-color: var(--border2); }
+  .alert-textarea::placeholder { color: var(--ink3); }
+
+  /* Buttons */
+  .btn-row { display: flex; gap: 8px; align-items: center; }
+
+  .btn {
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 10px 20px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .btn-primary { background: var(--blue); color: #fff; }
+  .btn-primary:hover { filter: brightness(1.1); }
+  .btn-primary:disabled { opacity: 0.35; cursor: not-allowed; }
+  .btn-ghost { background: transparent; color: var(--ink2); border: 1px solid var(--border2); font-size: 12px; padding: 8px 14px; }
+  .btn-ghost:hover { background: var(--bg2); }
+
+  /* Error */
+  .error-box {
+    background: var(--red-bg);
+    border: 1px solid var(--red-bd);
+    border-radius: 5px;
+    padding: 10px 12px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--red);
+    display: none;
+  }
+
+  /* Right panel — results */
+  .right-panel {
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .right-panel-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg2);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  /* Empty state */
+  .empty-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem;
+    text-align: center;
+    gap: 12px;
+  }
+
+  .empty-icon { font-size: 40px; }
+  .empty-title { font-size: 15px; font-weight: 600; color: var(--ink2); }
+  .empty-sub { font-size: 12px; color: var(--ink3); line-height: 1.6; max-width: 260px; }
+
+  /* Loader */
+  .loader-state {
+    flex: 1;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 3rem;
+  }
+
+  .loader-state.active { display: flex; }
+
+  .loader-bars {
+    display: flex;
+    gap: 4px;
+    align-items: flex-end;
+    height: 30px;
+  }
+
+  .lb {
+    width: 4px;
+    background: var(--blue);
+    border-radius: 2px;
+    animation: lbounce 0.8s ease-in-out infinite;
+  }
+
+  .lb:nth-child(1){height:12px;animation-delay:0s}
+  .lb:nth-child(2){height:20px;animation-delay:0.1s}
+  .lb:nth-child(3){height:28px;animation-delay:0.2s}
+  .lb:nth-child(4){height:20px;animation-delay:0.3s}
+  .lb:nth-child(5){height:12px;animation-delay:0.4s}
+
+  @keyframes lbounce {
+    0%,100%{transform:scaleY(0.5);opacity:0.5}
+    50%{transform:scaleY(1);opacity:1}
+  }
+
+  .loader-text { font-family: var(--mono); font-size: 12px; color: var(--ink3); }
+
+  /* Result content */
+  .result-content { display: none; flex-direction: column; }
+  .result-content.visible { display: flex; }
+
+  /* Triage verdict */
+  .triage-verdict {
+    margin: 16px 20px;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+
+  .tv-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 18px;
+    gap: 12px;
+  }
+
+  .triage-verdict.true-positive .tv-top { background: var(--red-bg); border-bottom: 1px solid var(--red-bd); }
+  .triage-verdict.false-positive .tv-top { background: var(--grn-bg); border-bottom: 1px solid var(--grn-bd); }
+  .triage-verdict.needs-investigation .tv-top { background: var(--ora-bg); border-bottom: 1px solid var(--ora-bd); }
+  .triage-verdict.benign .tv-top { background: var(--blu-bg); border-bottom: 1px solid var(--blu-bd); }
+
+  .tv-left {}
+
+  .tv-classification {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .tv-classification.true-positive { color: var(--red); }
+  .tv-classification.false-positive { color: var(--green); }
+  .tv-classification.needs-investigation { color: var(--orange); }
+  .tv-classification.benign { color: var(--blue); }
+
+  .tv-title { font-size: 17px; font-weight: 700; color: var(--ink); margin-bottom: 4px; letter-spacing: -0.01em; }
+
+  .tv-confidence {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink3);
+  }
+
+  .tv-score-block { text-align: right; flex-shrink: 0; }
+  .tv-score-label { font-family: var(--mono); font-size: 9px; color: var(--ink3); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 3px; }
+  .tv-score { font-size: 38px; font-weight: 800; line-height: 1; letter-spacing: -0.02em; }
+  .tv-score.true-positive { color: var(--red); }
+  .tv-score.false-positive { color: var(--green); }
+  .tv-score.needs-investigation { color: var(--orange); }
+  .tv-score.benign { color: var(--blue); }
+  .tv-score-pct { font-family: var(--mono); font-size: 11px; color: var(--ink3); }
+
+  .tv-body { background: var(--surface); padding: 16px 18px; }
+  .tv-summary { font-size: 13px; color: var(--ink2); line-height: 1.8; }
+
+  /* Result sections */
+  .res-section { margin: 0 20px 16px; }
+
+  .res-sec-title {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--ink3);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* Attack timeline */
+  .timeline { display: flex; flex-direction: column; gap: 0; }
+
+  .tl-item {
+    display: flex;
+    gap: 12px;
+    position: relative;
+  }
+
+  .tl-left {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex-shrink: 0;
+    width: 16px;
+  }
+
+  .tl-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    border: 2px solid var(--blue);
+    background: var(--surface);
+    flex-shrink: 0;
+    margin-top: 3px;
+    z-index: 1;
+  }
+
+  .tl-line {
+    width: 2px;
+    flex: 1;
+    background: var(--border);
+    margin-top: 2px;
+  }
+
+  .tl-item:last-child .tl-line { display: none; }
+
+  .tl-content {
+    padding-bottom: 12px;
+    flex: 1;
+  }
+
+  .tl-time { font-family: var(--mono); font-size: 9px; color: var(--ink3); margin-bottom: 2px; }
+  .tl-event { font-size: 12px; font-weight: 600; color: var(--ink); margin-bottom: 2px; }
+  .tl-detail { font-family: var(--mono); font-size: 11px; color: var(--ink2); line-height: 1.5; }
+
+  /* IOC table */
+  .ioc-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  .ioc-table th {
+    text-align: left;
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--ink3);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--border);
+    font-weight: 500;
+  }
+  .ioc-table td {
+    padding: 7px 10px;
+    border-bottom: 1px solid var(--border);
+    color: var(--ink2);
+    font-family: var(--mono);
+    word-break: break-all;
+  }
+  .ioc-table tr:last-child td { border-bottom: none; }
+  .ioc-table tr:hover td { background: var(--bg2); }
+  .ioc-val { color: var(--ink); }
+
+  .ioc-sev {
+    display: inline-block;
+    font-size: 8px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 3px;
+    letter-spacing: 0.06em;
+  }
+
+  .ioc-sev.high { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-bd); }
+  .ioc-sev.medium { background: var(--ora-bg); color: var(--orange); border: 1px solid var(--ora-bd); }
+  .ioc-sev.low { background: var(--blu-bg); color: var(--blue); border: 1px solid var(--blu-bd); }
+
+  /* Action steps */
+  .action-steps { display: flex; flex-direction: column; gap: 6px; }
+
+  .action-step {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+    animation: slideIn 0.25s ease both;
+  }
+
+  @keyframes slideIn { from{opacity:0;transform:translateX(8px)} to{opacity:1;transform:translateX(0)} }
+  .action-step:nth-child(1){animation-delay:0.0s}
+  .action-step:nth-child(2){animation-delay:0.05s}
+  .action-step:nth-child(3){animation-delay:0.1s}
+  .action-step:nth-child(4){animation-delay:0.15s}
+  .action-step:nth-child(5){animation-delay:0.2s}
+
+  .step-priority {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 700;
+    min-width: 24px;
+    height: 24px;
+    border-radius: 5px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .step-priority.immediate { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-bd); }
+  .step-priority.soon { background: var(--ora-bg); color: var(--orange); border: 1px solid var(--ora-bd); }
+  .step-priority.standard { background: var(--blu-bg); color: var(--blue); border: 1px solid var(--blu-bd); }
+
+  .step-action { font-size: 12px; font-weight: 600; color: var(--ink); margin-bottom: 2px; }
+  .step-detail { font-size: 11px; color: var(--ink2); line-height: 1.5; font-family: var(--mono); }
+
+  /* False positive callout */
+  .fp-callout {
+    background: var(--grn-bg);
+    border: 1px solid var(--grn-bd);
+    border-radius: 6px;
+    padding: 12px 14px;
+    font-size: 12px;
+    color: var(--green);
+    font-family: var(--mono);
+    line-height: 1.6;
+  }
+
+  footer {
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: 1rem 2rem;
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink3);
+    grid-column: 1 / -1;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="brand-icon">🛡</div>
+    <div class="brand-name">SOC TRIAGE <span>// alert assistant</span></div>
+  </div>
+  <div class="header-tag">AI-POWERED · v1.0</div>
+</header>
+
+<div class="layout">
+
+  <!-- LEFT: Input -->
+  <div class="left-panel">
+    <div class="panel-header">
+      <div class="panel-title">Alert Input</div>
+      <div class="panel-sub">Paste raw SIEM alert · AI triages in seconds</div>
+    </div>
+    <div class="panel-body">
+
+      <!-- API Key -->
+      <div>
+        <div class="api-row">
+          <div class="api-prefix">API KEY</div>
+          <input type="password" id="apiKey" placeholder="sk-ant-api03-..." spellcheck="false"/>
+        </div>
+        <div class="api-hint" style="margin-top:4px;">
+          <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a> · Never stored
+        </div>
+      </div>
+
+      <!-- Alert type -->
+      <div>
+        <div class="ctx-label" style="margin-bottom:6px;">Alert Source</div>
+        <div class="alert-tabs">
+          <div class="alert-tab active" onclick="setTab(this,'Splunk SIEM')">Splunk</div>
+          <div class="alert-tab" onclick="setTab(this,'Microsoft Sentinel')">Sentinel</div>
+          <div class="alert-tab" onclick="setTab(this,'CrowdStrike EDR')">CrowdStrike</div>
+          <div class="alert-tab" onclick="setTab(this,'Palo Alto Firewall')">Palo Alto</div>
+          <div class="alert-tab" onclick="setTab(this,'Generic / Other')">Other</div>
+        </div>
+      </div>
+
+      <!-- Context -->
+      <div class="ctx-grid">
+        <div class="ctx-field">
+          <div class="ctx-label">Environment</div>
+          <select id="envCtx">
+            <option value="">-- Select --</option>
+            <option>Production</option>
+            <option>Development</option>
+            <option>Staging</option>
+            <option>Corporate Network</option>
+            <option>Cloud (AWS/Azure/GCP)</option>
+          </select>
+        </div>
+        <div class="ctx-field">
+          <div class="ctx-label">Affected Asset</div>
+          <input type="text" id="assetCtx" placeholder="e.g. web-server-01, DC01"/>
+        </div>
+      </div>
+
+      <!-- Alert textarea -->
+      <textarea class="alert-textarea" id="alertInput"
+        placeholder="Paste raw SIEM alert here...&#10;&#10;Example:&#10;  Alert: Possible Brute Force Attack&#10;  Source IP: 185.220.101.47&#10;  Destination: 10.0.0.5:22&#10;  Failed logins: 47 in 60 seconds&#10;  User: root, admin, ubuntu&#10;  Time: 2026-03-13 02:14:22 UTC"></textarea>
+
+      <div class="error-box" id="errorBox"></div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" id="triageBtn" onclick="triage()">Triage Alert</button>
+        <button class="btn btn-ghost" onclick="loadSample()">Load sample</button>
+        <button class="btn btn-ghost" onclick="clearAll()">Clear</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- RIGHT: Results -->
+  <div class="right-panel" id="rightPanel">
+    <div class="right-panel-header">
+      <div class="panel-title">Triage Report</div>
+      <div class="panel-sub" id="rightSub" style="font-family:var(--mono);font-size:11px;color:var(--ink3);">Awaiting alert...</div>
+    </div>
+
+    <!-- Empty state -->
+    <div class="empty-state" id="emptyState">
+      <div class="empty-icon">🛡️</div>
+      <div class="empty-title">Ready to triage</div>
+      <div class="empty-sub">Paste a SIEM alert on the left and click Triage Alert — AI will determine true positive vs false positive and tell you exactly what to do.</div>
+    </div>
+
+    <!-- Loader -->
+    <div class="loader-state" id="loaderState">
+      <div class="loader-bars">
+        <div class="lb"></div><div class="lb"></div><div class="lb"></div>
+        <div class="lb"></div><div class="lb"></div>
+      </div>
+      <div class="loader-text" id="loaderText">Analyzing alert...</div>
+    </div>
+
+    <!-- Result -->
+    <div class="result-content" id="resultContent">
+
+      <div class="triage-verdict" id="triageVerdict">
+        <div class="tv-top" id="tvTop">
+          <div class="tv-left">
+            <div class="tv-classification" id="tvClass"></div>
+            <div class="tv-title" id="tvTitle"></div>
+            <div class="tv-confidence" id="tvConf"></div>
+          </div>
+          <div class="tv-score-block">
+            <div class="tv-score-label">Confidence</div>
+            <div class="tv-score" id="tvScore"></div>
+            <div class="tv-score-pct">%</div>
+          </div>
+        </div>
+        <div class="tv-body">
+          <div class="tv-summary" id="tvSummary"></div>
+        </div>
+      </div>
+
+      <!-- Timeline -->
+      <div class="res-section" id="timelineSection">
+        <div class="res-sec-title">Attack Timeline</div>
+        <div class="timeline" id="timelineContainer"></div>
+      </div>
+
+      <!-- IOCs -->
+      <div class="res-section" id="iocSection">
+        <div class="res-sec-title">Extracted IOCs</div>
+        <table class="ioc-table">
+          <thead><tr><th>Type</th><th>Value</th><th>Severity</th></tr></thead>
+          <tbody id="iocTableBody"></tbody>
+        </table>
+      </div>
+
+      <!-- Actions -->
+      <div class="res-section" id="actionsSection">
+        <div class="res-sec-title">Recommended Actions</div>
+        <div class="action-steps" id="actionSteps"></div>
+      </div>
+
+      <div style="height:1.5rem;"></div>
+    </div>
+
+  </div>
+
+</div>
+
+<footer>SOC Triage Assistant v1.0 &nbsp;·&nbsp; AI-Powered Alert Triage &nbsp;·&nbsp; Built with Claude AI &nbsp;·&nbsp; Based on real SOC analyst workflows</footer>
+
+<script>
+let alertSource = 'Splunk SIEM';
+
+const SAMPLE_ALERT = `Alert Name: Brute Force Login Attempt - SSH
+Severity: High
+Source: Splunk SIEM
+Time: 2026-03-13 02:14:22 UTC
+
+Event Details:
+  Source IP:       185.220.101.47
+  Destination IP:  10.0.0.5
+  Destination Port: 22 (SSH)
+  Failed Attempts: 47 in 60 seconds
+  Targeted Users:  root, admin, ubuntu, deploy
+  Geolocation:     Germany (Tor Exit Node)
+  ASN:             AS204976
+
+Raw Log Sample:
+  Mar 13 02:14:22 server sshd[1234]: Failed password for root from 185.220.101.47 port 54321 ssh2
+  Mar 13 02:14:23 server sshd[1235]: Failed password for root from 185.220.101.47 port 54322 ssh2
+  Mar 13 02:14:24 server sshd[1236]: Failed password for admin from 185.220.101.47 port 54323 ssh2
+  Mar 13 02:14:28 server sshd[1240]: Failed password for ubuntu from 185.220.101.47 port 54327 ssh2
+  Mar 13 02:14:30 server sshd[1241]: Accepted password for deploy from 185.220.101.47 port 54328 ssh2
+
+MITRE ATT&CK: T1110 - Brute Force`;
+
+function loadSample() {
+  document.getElementById('alertInput').value = SAMPLE_ALERT;
+  document.getElementById('assetCtx').value = 'prod-server-01';
+  document.getElementById('envCtx').value = 'Production';
+}
+
+function clearAll() {
+  document.getElementById('alertInput').value = '';
+  document.getElementById('assetCtx').value = '';
+  document.getElementById('envCtx').value = '';
+  document.getElementById('errorBox').style.display = 'none';
+  showEmpty();
+}
+
+function setTab(el, src) {
+  document.querySelectorAll('.alert-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  alertSource = src;
+}
+
+function showEmpty() {
+  document.getElementById('emptyState').style.display = 'flex';
+  document.getElementById('loaderState').classList.remove('active');
+  document.getElementById('resultContent').classList.remove('visible');
+  document.getElementById('rightSub').textContent = 'Awaiting alert...';
+}
+
+function showError(msg) {
+  const b = document.getElementById('errorBox');
+  b.textContent = msg;
+  b.style.display = 'block';
+}
+
+const loaderMsgs = [
+  'Analyzing alert...',
+  'Checking for false positive indicators...',
+  'Correlating threat intelligence...',
+  'Building attack timeline...',
+  'Generating triage report...'
+];
+let loaderInterval;
+
+function startLoader() {
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('resultContent').classList.remove('visible');
+  document.getElementById('loaderState').classList.add('active');
+  document.getElementById('rightSub').textContent = 'Analyzing...';
+  let i = 0;
+  loaderInterval = setInterval(() => {
+    i = (i + 1) % loaderMsgs.length;
+    document.getElementById('loaderText').textContent = loaderMsgs[i];
+  }, 1400);
+}
+
+function stopLoader() {
+  clearInterval(loaderInterval);
+  document.getElementById('loaderState').classList.remove('active');
+}
+
+async function triage() {
+  const apiKey = document.getElementById('apiKey').value.trim();
+  const alert  = document.getElementById('alertInput').value.trim();
+  const env    = document.getElementById('envCtx').value;
+  const asset  = document.getElementById('assetCtx').value;
+
+  if (!apiKey) { showError('Please enter your Anthropic API key.'); return; }
+  if (!alert)  { showError('Please paste an alert to triage.'); return; }
+
+  document.getElementById('errorBox').style.display = 'none';
+  document.getElementById('triageBtn').disabled = true;
+  startLoader();
+
+  const system = `You are a senior SOC analyst performing alert triage. Analyze the provided SIEM alert and respond ONLY with a raw JSON object — no markdown, no backticks, no text outside the JSON.
+
+JSON format:
+{
+  "classification": "<true-positive|false-positive|needs-investigation|benign>",
+  "confidence": <number 0-100>,
+  "title": "<short triage verdict title, e.g. 'Active SSH Brute Force — Likely Compromised'>",
+  "summary": "<2-3 sentence analyst summary explaining the verdict and key evidence>",
+  "timeline": [
+    {
+      "time": "<timestamp or relative time>",
+      "event": "<what happened>",
+      "detail": "<specific detail from the alert>"
+    }
+  ],
+  "iocs": [
+    {
+      "type": "<IP|Domain|Hash|User|Port|Command>",
+      "value": "<IOC value>",
+      "severity": "<high|medium|low>"
+    }
+  ],
+  "actions": [
+    {
+      "priority": "<immediate|soon|standard>",
+      "action": "<short action title>",
+      "detail": "<specific instruction for this alert>"
+    }
+  ]
+}
+
+Classification guide:
+- true-positive: confirmed malicious activity requiring response
+- false-positive: benign activity triggering alert, no action needed
+- needs-investigation: ambiguous, requires more data to determine
+- benign: expected/normal behavior, low priority
+
+Rules:
+- timeline: 3-5 events showing the attack chain or event sequence
+- iocs: extract real IOCs present in the alert (IPs, users, ports, hashes)
+- actions: 4-5 ordered steps, most urgent first
+- Be specific — reference actual values from the alert in your analysis
+- Return ONLY the JSON`;
+
+  const ctx = [
+    alertSource ? `Source: ${alertSource}` : '',
+    env   ? `Environment: ${env}` : '',
+    asset ? `Affected asset: ${asset}` : ''
+  ].filter(Boolean).join('\n');
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1500,
+        system,
+        messages: [{ role: 'user', content: `Triage this alert:\n${ctx}\n\nAlert:\n${alert}` }]
+      })
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error('API error ' + res.status + ': ' + (err.error?.message || res.statusText));
+    }
+
+    const data = await res.json();
+    const raw  = (data.content || []).map(b => b.text || '').join('').trim();
+    const s    = raw.indexOf('{');
+    const e    = raw.lastIndexOf('}');
+    if (s === -1) throw new Error('No JSON returned from AI');
+    const parsed = JSON.parse(raw.slice(s, e + 1));
+    renderTriage(parsed);
+  } catch(e) {
+    stopLoader();
+    showError(e.message);
+    showEmpty();
+  } finally {
+    document.getElementById('triageBtn').disabled = false;
+    stopLoader();
+  }
+}
+
+const classLabels = {
+  'true-positive':       '⚠ TRUE POSITIVE',
+  'false-positive':      '✓ FALSE POSITIVE',
+  'needs-investigation': '⚡ NEEDS INVESTIGATION',
+  'benign':              'ℹ BENIGN ACTIVITY'
+};
+
+function renderTriage(d) {
+  const cls = d.classification;
+
+  // Verdict
+  const verdict = document.getElementById('triageVerdict');
+  verdict.className = 'triage-verdict ' + cls;
+
+  document.getElementById('tvClass').className = 'tv-classification ' + cls;
+  document.getElementById('tvClass').textContent = classLabels[cls] || cls.toUpperCase();
+  document.getElementById('tvTitle').textContent = d.title;
+  document.getElementById('tvConf').textContent = `Confidence: ${d.confidence}%`;
+
+  const score = document.getElementById('tvScore');
+  score.className = 'tv-score ' + cls;
+  score.textContent = d.confidence;
+
+  document.getElementById('tvSummary').textContent = d.summary;
+  document.getElementById('rightSub').textContent = classLabels[cls] || cls;
+
+  // Timeline
+  document.getElementById('timelineContainer').innerHTML = (d.timeline || []).map(t =>
+    `<div class="tl-item">
+      <div class="tl-left">
+        <div class="tl-dot"></div>
+        <div class="tl-line"></div>
+      </div>
+      <div class="tl-content">
+        <div class="tl-time">${t.time}</div>
+        <div class="tl-event">${t.event}</div>
+        <div class="tl-detail">${t.detail}</div>
+      </div>
+    </div>`
+  ).join('');
+
+  // IOCs
+  document.getElementById('iocTableBody').innerHTML = (d.iocs || []).map(ioc =>
+    `<tr>
+      <td style="color:var(--ink3)">${ioc.type}</td>
+      <td class="ioc-val">${ioc.value}</td>
+      <td><span class="ioc-sev ${ioc.severity}">${ioc.severity.toUpperCase()}</span></td>
+    </tr>`
+  ).join('');
+
+  // Actions
+  document.getElementById('actionSteps').innerHTML = (d.actions || []).map((a, i) =>
+    `<div class="action-step" style="animation-delay:${i*0.05}s">
+      <div class="step-priority ${a.priority}">${i + 1}</div>
+      <div>
+        <div class="step-action">${a.action}</div>
+        <div class="step-detail">${a.detail}</div>
+      </div>
+    </div>`
+  ).join('');
+
+  document.getElementById('resultContent').classList.add('visible');
+  document.getElementById('rightPanel').scrollTo({ top: 0, behavior: 'smooth' });
+}
+</script>
+</body>
+</html>
